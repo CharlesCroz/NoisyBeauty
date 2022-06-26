@@ -1,0 +1,6 @@
+[submodule "CPP_UTILS"]
+	path = CPP_UTILS
+	url = https://github.com/CharlesCroz/CPP_UTILS.git
+[submodule "FastNoiseLite"]
+	path = FastNoiseLite
+	url = https://github.com/Auburn/FastNoiseLite.git
