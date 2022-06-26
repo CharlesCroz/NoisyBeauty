@@ -105,5 +105,7 @@ int main() {
 
     cv::setMouseCallback(imageSourceName, onMouse, 0);
 
-    while (1) {}
+    while (1) {
+        cv::waitKey(0);
+    }
 }
