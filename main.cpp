@@ -70,7 +70,10 @@ int main() {
     int width = 800;
 
     imageSource = cv::imread("../Images/Face1.jpg");
-
+    if (imageSource.rows > 600) {
+        cv::resize(imageSource, imageSource,
+                   cv::Size((int) ((float) imageSource.cols * 600 / (float) imageSource.rows), 600));
+    }
 
     imageSourceName = "Pick to points on me";
     imageTargetName = "Enjoy the beauty";
