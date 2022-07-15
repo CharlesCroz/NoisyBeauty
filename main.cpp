@@ -4,6 +4,7 @@
 #include "./FastNoiseLite/Cpp/FastNoiseLite.h"
 #include "./CPP_UTILS/Matrix.h"
 
+#define MULTIPLIER 0.2f
 
 int clickCount = 0;
 int i1_;
@@ -13,9 +14,25 @@ int j2_;
 cv::Mat imageSource;
 cv::Mat imageSourceDisplay;
 std::string imageSourceName;
+std::string imageSourceZSliderName;
 std::string imageTargetName;
 std::vector<cv::Point3_<uchar>> noiseToCvPoint;
 Matrix<float> noiseMatrix;
+int noiseZValue_ = 0;
+FastNoiseLite noiseGenerator;
+
+void setNoiseMatrix(int zValue, float multiplier) {
+    float zVal = (float) zValue * multiplier;
+    int h = (int) noiseMatrix.get_height();
+    int w = (int) noiseMatrix.get_width();
+#pragma omp parallel for default(none) shared(h, w, noiseGenerator, zVal, noiseMatrix)
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            float val = 0.5f * (1.0f + noiseGenerator.GetNoise((float) x, (float) y, zVal));
+            noiseMatrix.at(x, y) = val;
+        }
+    }
+}
 
 cv::Mat drawPoint1(const cv::Mat &src, int i1, int j1) {
     cv::Mat result;
@@ -65,6 +82,12 @@ static void onMouse(int event, int x, int y, int, void *) {
     }
 }
 
+static void onTrackBar(int, void *) {
+    setNoiseMatrix(noiseZValue_, MULTIPLIER);
+    cv::Mat displayTarget = NoiseTransformer::noiseToCvMat(noiseMatrix, noiseToCvPoint);
+    cv::imshow(imageTargetName, displayTarget);
+}
+
 int main() {
     int height = 600;
     int width = 800;
@@ -76,6 +99,7 @@ int main() {
     }
 
     imageSourceName = "Pick to points on me";
+    imageSourceZSliderName = "zValue";
     imageTargetName = "Enjoy the beauty";
     cv::namedWindow(imageSourceName);
     cv::namedWindow(imageTargetName);
@@ -91,14 +115,9 @@ int main() {
     noiseToCvPoint = NoiseTransformer::imageToVector(imageSource, 200,
                                                      i1_, j1_, i2_, j2_);
 
-    FastNoiseLite noiseGenerator(FastNoiseLite::NoiseType_Perlin);
+    noiseGenerator = FastNoiseLite(FastNoiseLite::NoiseType_Perlin);
     noiseMatrix = Matrix<float>(width, height);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            float val = 0.5f * (1.0f + noiseGenerator.GetNoise((float) x, (float) y));
-            noiseMatrix.at(x, y) = val;
-        }
-    }
+    setNoiseMatrix(noiseZValue_, MULTIPLIER);
 
 
     cv::Mat display = NoiseTransformer::noiseToCvMat(noiseMatrix, noiseToCvPoint);
@@ -107,6 +126,7 @@ int main() {
     cv::imshow(imageTargetName, display);
 
     cv::setMouseCallback(imageSourceName, onMouse, 0);
+    cv::createTrackbar(imageSourceZSliderName, imageSourceName, &noiseZValue_, 1000, &onTrackBar);
 
     while (1) {
         cv::waitKey(0);
