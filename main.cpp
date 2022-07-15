@@ -5,6 +5,7 @@
 #include "./CPP_UTILS/Matrix.h"
 
 #define MULTIPLIER 0.2f
+#define ZNOISECOUNT 1000
 
 int clickCount = 0;
 int i1_;
@@ -17,22 +18,23 @@ std::string imageSourceName;
 std::string imageSourceZSliderName;
 std::string imageTargetName;
 std::vector<cv::Point3_<uchar>> noiseToCvPoint;
-Matrix<float> noiseMatrix;
+//Matrix<float> noiseMatrix;
+std::vector<Matrix<float>> noiseVolume;
 int noiseZValue_ = 0;
 FastNoiseLite noiseGenerator;
 
-void setNoiseMatrix(int zValue, float multiplier) {
-    float zVal = (float) zValue * multiplier;
-    int h = (int) noiseMatrix.get_height();
-    int w = (int) noiseMatrix.get_width();
-#pragma omp parallel for default(none) shared(h, w, noiseGenerator, zVal, noiseMatrix)
-    for (int y = 0; y < h; ++y) {
-        for (int x = 0; x < w; ++x) {
-            float val = 0.5f * (1.0f + noiseGenerator.GetNoise((float) x, (float) y, zVal));
-            noiseMatrix.at(x, y) = val;
-        }
-    }
-}
+//void setNoiseMatrix(int zValue, float multiplier) {
+//    float zVal = (float) zValue * multiplier;
+//    int h = (int) noiseMatrix.get_height();
+//    int w = (int) noiseMatrix.get_width();
+//#pragma omp parallel for default(none) shared(h, w, noiseGenerator, zVal, noiseMatrix)
+//    for (int y = 0; y < h; ++y) {
+//        for (int x = 0; x < w; ++x) {
+//            float val = 0.5f * (1.0f + noiseGenerator.GetNoise((float) x, (float) y, zVal));
+//            noiseMatrix.at(x, y) = val;
+//        }
+//    }
+//}
 
 cv::Mat drawPoint1(const cv::Mat &src, int i1, int j1) {
     cv::Mat result;
@@ -73,7 +75,7 @@ static void onMouse(int event, int x, int y, int, void *) {
 
             noiseToCvPoint = NoiseTransformer::imageToVector(imageSource, 200,
                                                              i1_, j1_, i2_, j2_);
-            cv::Mat displayTarget = NoiseTransformer::noiseToCvMat(noiseMatrix, noiseToCvPoint);
+            cv::Mat displayTarget = NoiseTransformer::noiseToCvMat(noiseVolume[noiseZValue_], noiseToCvPoint);
             cv::imshow(imageTargetName, displayTarget);
         }
         clickCount++;
@@ -83,8 +85,8 @@ static void onMouse(int event, int x, int y, int, void *) {
 }
 
 static void onTrackBar(int, void *) {
-    setNoiseMatrix(noiseZValue_, MULTIPLIER);
-    cv::Mat displayTarget = NoiseTransformer::noiseToCvMat(noiseMatrix, noiseToCvPoint);
+//    setNoiseMatrix(noiseZValue_, MULTIPLIER);
+    cv::Mat displayTarget = NoiseTransformer::noiseToCvMat(noiseVolume[noiseZValue_], noiseToCvPoint);
     cv::imshow(imageTargetName, displayTarget);
 }
 
@@ -116,17 +118,29 @@ int main() {
                                                      i1_, j1_, i2_, j2_);
 
     noiseGenerator = FastNoiseLite(FastNoiseLite::NoiseType_Perlin);
-    noiseMatrix = Matrix<float>(width, height);
-    setNoiseMatrix(noiseZValue_, MULTIPLIER);
+//    noiseMatrix = Matrix<float>(width, height);
+//    setNoiseMatrix(noiseZValue_, MULTIPLIER);
+    noiseVolume.resize(ZNOISECOUNT + 1);
+    for(int i = 0; i <= ZNOISECOUNT ; i++){
+        noiseVolume[i] = Matrix<float>(width, height);
+        float zVal = (float) i * MULTIPLIER;
+#pragma omp parallel for default(none) shared(height, width, noiseGenerator, zVal, noiseVolume, i)
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                float val = 0.5f * (1.0f + noiseGenerator.GetNoise((float) x, (float) y, zVal));
+                noiseVolume[i].at(x, y) = val;
+            }
+        }
+    }
 
 
-    cv::Mat display = NoiseTransformer::noiseToCvMat(noiseMatrix, noiseToCvPoint);
+    cv::Mat display = NoiseTransformer::noiseToCvMat(noiseVolume[noiseZValue_], noiseToCvPoint);
 
 
     cv::imshow(imageTargetName, display);
 
     cv::setMouseCallback(imageSourceName, onMouse, 0);
-    cv::createTrackbar(imageSourceZSliderName, imageSourceName, &noiseZValue_, 1000, &onTrackBar);
+    cv::createTrackbar(imageSourceZSliderName, imageSourceName, &noiseZValue_, ZNOISECOUNT, &onTrackBar);
 
     while (1) {
         cv::waitKey(0);
