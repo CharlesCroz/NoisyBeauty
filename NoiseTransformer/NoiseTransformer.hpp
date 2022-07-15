@@ -8,7 +8,6 @@
 #include "../CPP_UTILS/Matrix.h"
 #include <vector>
 #include "opencv2/opencv.hpp"
-#include "../FastNoiseLite/Cpp/FastNoiseLite.h"
 
 class NoiseTransformer {
 public:
